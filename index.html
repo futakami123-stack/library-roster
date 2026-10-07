@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖書館勤務與請假看板</title>
+
+    <!-- 網頁頁籤與預設捷徑圖示 -->
+    <link rel="icon" href="calendar-icon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="calendar-icon.ico" type="image/x-icon">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- 頁首標題 -->
+        <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h1 class="text-2xl font-bold text-slate-900">圖書館當週勤務與志工看板</h1>
+                </div>
+                <p class="text-sm text-slate-500 mt-1" id="current-week-range">載入本週日期中...</p>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-100 px-4 py-2 rounded-xl text-xs font-medium text-slate-600">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> 正常出勤</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> 請假</span>
+            </div>
+        </header>
+
+        <!-- ✍ 線上請假登記面板 -->
+        <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📝</span>
+                    <h2 class="text-base font-bold text-slate-900">志工線上請假登記</h2>
+                </div>
+                
+                <div class="inline-flex bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600 self-start sm:self-auto">
+                    <button type="button" id="mode-single-btn" onclick="switchMode('multiple')" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-700 transition-all">📅 指定多天</button>
+                    <button type="button" id="mode-range-btn" onclick="switchMode('range')" class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all">📆 連續日期區間</button>
+                </div>
+            </div>
+
+            <form id="leave-form" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                    
+                    <div class="md:col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-200/70" id="date-input-container">
+                        <div id="multiple-dates-wrapper" class="space-y-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">選擇請假日期</label>
+                                <button type="button" onclick="addDateField()" class="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200/60 transition-all">＋ 增加日期</button>
+                            </div>
+                            <div id="date-fields-list" class="space-y-2">
+                                <div class="flex items-center gap-2 date-item">
+                                    <input type="date" class="leave-date-input w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="range-dates-wrapper" class="hidden grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">開始日期</label>
+                                <input type="date" id="leave-start-date" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">結束日期</label>
+                                <input type="date" id="leave-end-date" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">請假時段</label>
+                        <select id="leave-period" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
+                            <option value="morning">☀️ 上午時段 (08:30-11:30)</option>
+                            <option value="afternoon">🌤️ 下午時段 (13:30-16:30)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">請假志工/姓名</label>
+                        <input type="text" id="leave-original" placeholder="例：王小明" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
+                    </div>
+
+                </div>
+
+                <div class="flex justify-end pt-2 border-t border-slate-100">
+                    <button type="submit" id="submit-btn" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-2.5 px-8 rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-1">
+                        <span>送出請假登記</span>
+                    </button>
+                </div>
+            </form>
+
+            <div id="form-status" class="hidden text-xs font-medium px-3 py-2 rounded-lg"></div>
+        </section>
+
+        <!-- 主要週看板網格 -->
+        <main class="grid grid-cols-1 md:grid-cols-5 gap-4" id="schedule-grid"></main>
+
+        <footer class="text-center text-xs text-slate-400 py-4">
+            資料最後更新時間：<span id="last-updated">--:--:--</span>｜本網頁動態同步 Google Sheets 請假紀錄
+        </footer>
+
+    </div>
+
+    <script>
+        const CONFIG = {
+            API_URL: "https://script.google.com/macros/s/AKfycbxcL39hM1WSllJNXEFPS7Ixgdi6n4oQzpCw-1N_K_0SwUlxEskx6uCoLPBB4Ta83xNJ/exec"
+        };
+
+        const DAYS_NAME = ["週一", "週二", "週三", "週四", "週五"];
+        let currentMode = "multiple"; 
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const singleBtn = document.getElementById("mode-single-btn");
+            const rangeBtn = document.getElementById("mode-range-btn");
+            const multWrapper = document.getElementById("multiple-dates-wrapper");
+            const rangeWrapper = document.getElementById("range-dates-wrapper");
+
+            if (mode === "multiple") {
+                singleBtn.className = "px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-700 transition-all";
+                rangeBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all";
+                multWrapper.classList.remove("hidden");
+                rangeWrapper.classList.add("hidden");
+            } else {
+                rangeBtn.className = "px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-700 transition-all";
+                singleBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all";
+                rangeWrapper.classList.remove("hidden");
+                multWrapper.classList.add("hidden");
+            }
+        }
+
+        function addDateField(defaultVal = "") {
+            const container = document.getElementById("date-fields-list");
+            const div = document.createElement("div");
+            div.className = "flex items-center gap-2 date-item";
+            div.innerHTML = `
+                <input type="date" value="${defaultVal}" class="leave-date-input w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" required>
+                <button type="button" onclick="removeDateField(this)" class="text-slate-400 hover:text-rose-500 font-bold px-2 py-1 text-sm transition-colors">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeDateField(btn) {
+            const items = document.querySelectorAll(".date-item");
+            if (items.length > 1) {
+                btn.closest(".date-item").remove();
+            } else {
+                alert("至少需要保留一個日期！");
+            }
+        }
+
+        function getWeekDates() {
+            const now = new Date();
+            const currentDay = now.getDay();
+            const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() + distanceToMonday);
+
+            const weekDates = [];
+            for (let i = 0; i < 5; i++) {
+                const dayDate = new Date(monday);
+                dayDate.setDate(monday.getDate() + i);
+                const year = dayDate.getFullYear();
+                const month = String(dayDate.getMonth() + 1).padStart(2, '0');
+                const date = String(dayDate.getDate()).padStart(2, '0');
+                
+                weekDates.push({
+                    dayIndex: i + 1,
+                    dayName: DAYS_NAME[i],
+                    dateString: `${year}-${month}-${date}`,
+                    displayDate: `${month}/${date}`
+                });
+            }
+            return weekDates;
+        }
+
+        function formatDateString(str) {
+            if (!str) return "";
+            if (str.includes("T")) str = str.split("T")[0];
+            const d = new Date(str);
+            if (isNaN(d.getTime())) return String(str).trim();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        async function fetchSheetData() {
+            try {
+                if (CONFIG.API_URL && !CONFIG.API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+                    const cleanUrl = `${CONFIG.API_URL}?t=${new Date().getTime()}`;
+                    const res = await fetch(cleanUrl);
+                    return await res.json();
+                }
+            } catch (err) {
+                console.warn("無法取得 API 資料：", err);
+            }
+            return { regular: [], leaves: [], holidays: {} };
+        }
+
+        async function renderSchedule() {
+            const weekDates = getWeekDates();
+            const scheduleGrid = document.getElementById("schedule-grid");
+            const weekRangeEl = document.getElementById("current-week-range");
+            
+            weekRangeEl.textContent = `本週日期：${weekDates[0].dateString} (${weekDates[0].dayName}) ～ ${weekDates[4].dateString} (${weekDates[4].dayName})`;
+
+            const data = await fetchSheetData();
+            const regularMap = data.regular || [];
+            const leaveMap = data.leaves || [];
+            const holidaysMap = data.holidays || {};
+
+            scheduleGrid.innerHTML = "";
+
+            weekDates.forEach((dayInfo) => {
+                const dayCard = document.createElement("div");
+                dayCard.className = "bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-col items-stretch justify-start space-y-3 hover:shadow-md transition-shadow";
+
+                // 檢查今天是否有放假設定（相容全天字串或半天物件結構）
+                const holidayInfo = holidaysMap[dayInfo.dateString];
+                let holidayPeriod = "all";
+                let holidayReason = "";
+
+                if (holidayInfo) {
+                    if (typeof holidayInfo === "object") {
+                        holidayPeriod = holidayInfo.period || "all";
+                        holidayReason = holidayInfo.reason || "國定假日/放假";
+                    } else {
+                        holidayPeriod = "all";
+                        holidayReason = String(holidayInfo);
+                    }
+                }
+
+                if (holidayInfo && holidayPeriod === 'all') {
+                    // 🌴 全天放假模式
+                    dayCard.classList.add("bg-slate-50/50");
+                    dayCard.innerHTML = `
+                        <div class="border-b border-slate-100 pb-2.5 flex justify-between items-center">
+                            <span class="text-base font-bold text-slate-800">${dayInfo.dayName}</span>
+                            <span class="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">${dayInfo.displayDate}</span>
+                        </div>
+                        <div class="my-auto py-8 text-center flex flex-col items-center justify-center space-y-2 bg-slate-100/60 rounded-xl border border-dashed border-slate-200">
+                            <span class="text-2xl">🌴</span>
+                            <span class="text-xs font-bold text-slate-600">${holidayReason}</span>
+                            <span class="text-[11px] text-slate-400">圖書館暫停服務</span>
+                        </div>
+                    `;
+                } else {
+                    // 正常工作日（包含半天放假的情況）
+                    const dayRegs = regularMap.filter(r => Number(r.day) === dayInfo.dayIndex);
+                    
+                    const teachers = dayRegs.filter(r => r.type === 'teacher');
+                    const morningVols = dayRegs.filter(r => r.type === 'volunteer' && r.period === 'morning');
+                    const afternoonVols = dayRegs.filter(r => r.type === 'volunteer' && r.period === 'afternoon');
+                    const noonStudents = dayRegs.filter(r => r.period === 'noon' || r.type === 'student');
+
+                    const dayLeaves = leaveMap.filter(l => formatDateString(l.date) === dayInfo.dateString);
+
+                    // 判斷半天放假區塊
+                    const isMorningHoliday = holidayInfo && holidayPeriod === 'morning';
+                    const isAfternoonHoliday = holidayInfo && holidayPeriod === 'afternoon';
+
+                    const morningHtml = isMorningHoliday ? `
+                        <div class="bg-slate-100/80 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center justify-center py-4 space-y-1">
+                            <span class="text-xs font-bold text-slate-600">🌴 上午不開放（${holidayReason}）</span>
+                        </div>
+                    ` : `
+                        <div class="bg-amber-50/40 border border-amber-100/80 rounded-xl p-3 flex flex-col space-y-2">
+                            <div class="flex items-center justify-between text-xs font-bold text-amber-800/90 border-b border-amber-100/80 pb-1.5">
+                                <span class="flex items-center gap-1.5">☀️ 上午</span>
+                                <span class="text-[10px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">08:30-11:30</span>
+                            </div>
+                            ${renderMultiVolunteersList(morningVols, dayLeaves, 'morning')}
+                        </div>
+                    `;
+
+                    const afternoonHtml = isAfternoonHoliday ? `
+                        <div class="bg-slate-100/80 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center justify-center py-4 space-y-1">
+                            <span class="text-xs font-bold text-slate-600">🌴 下午不開放（${holidayReason}）</span>
+                        </div>
+                    ` : `
+                        <div class="bg-sky-50/40 border border-sky-100/80 rounded-xl p-3 flex flex-col space-y-2">
+                            <div class="flex items-center justify-between text-xs font-bold text-sky-800/90 border-b border-sky-100/80 pb-1.5">
+                                <span class="flex items-center gap-1.5">🌤️ 下午</span>
+                                <span class="text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-full">13:30-16:30</span>
+                            </div>
+                            ${renderMultiVolunteersList(afternoonVols, dayLeaves, 'afternoon')}
+                        </div>
+                    `;
+
+                    dayCard.innerHTML = `
+                        <div class="border-b border-slate-100 pb-2.5 flex justify-between items-center">
+                            <span class="text-base font-bold text-slate-900">${dayInfo.dayName}</span>
+                            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${dayInfo.displayDate}</span>
+                        </div>
+
+                        <!-- 📌 閱推/主責老師 -->
+                        ${renderTeacherBadge(teachers)}
+
+                        <!-- ☀️ 上午志工 / 上午放假 -->
+                        ${morningHtml}
+
+                        <!-- 🍱 中午小志工（暖灰色調版） -->
+                        ${renderStudentSection(noonStudents)}
+
+                        <!-- 🌤️ 下午志工 / 下午放假 -->
+                        ${afternoonHtml}
+                    `;
+                }
+
+                scheduleGrid.appendChild(dayCard);
+            });
+
+            document.getElementById("last-updated").textContent = new Date().toLocaleTimeString();
+        }
+
+        // 渲染閱推老師
+        function renderTeacherBadge(teachers) {
+            if (!teachers || teachers.length === 0) return '';
+            const names = teachers.map(t => t.name).join("、");
+            return `
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-2.5 flex items-center gap-2 text-xs text-indigo-900">
+                    <span class="font-bold text-indigo-600 shrink-0">📌 主責</span>
+                    <span class="font-semibold truncate">${names}</span>
+                </div>
+            `;
+        }
+
+        // 🍱 中午小志工（暖灰色調版）
+        function renderStudentSection(students) {
+            if (!students || students.length === 0) {
+                return `
+                    <div class="bg-slate-100/70 border border-slate-200/80 rounded-xl p-3 flex flex-col space-y-2">
+                        <div class="flex items-center justify-between text-xs font-bold text-slate-700 border-b border-slate-200/80 pb-1.5">
+                            <span class="flex items-center gap-1.5">🍱 中午小志工</span>
+                            <span class="text-[10px] font-semibold text-slate-600 bg-slate-200 px-2 py-0.5 rounded-full">12:35-13:00</span>
+                        </div>
+                        <div class="py-1 text-center text-xs text-slate-400 font-normal">無排班人員</div>
+                    </div>
+                `;
+            }
+            
+            const items = students.map(s => s.name.split("/")).flat().map(item => item.trim()).filter(Boolean);
+            const badgeHtml = items.map(item => `
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                    ${item}
+                </span>
+            `).join('');
+
+            return `
+                <div class="bg-slate-100/70 border border-slate-200/80 rounded-xl p-3 flex flex-col space-y-2">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-700 border-b border-slate-200/80 pb-1.5">
+                        <span class="flex items-center gap-1.5">🍱 中午小志工</span>
+                        <span class="text-[10px] font-semibold text-slate-600 bg-slate-200 px-2 py-0.5 rounded-full">12:35-13:00</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 pt-0.5">
+                        ${badgeHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染大人志工名單
+        function renderMultiVolunteersList(regularVolunteers, dayLeaves, period) {
+            if (!regularVolunteers || regularVolunteers.length === 0) {
+                return `<div class="py-1 text-center text-xs text-slate-400 font-normal">無排班人員</div>`;
+            }
+
+            const periodLeaves = dayLeaves.filter(l => l.period === period);
+
+            const volunteerCardsHtml = regularVolunteers.map(vol => {
+                const volName = String(vol.name).trim();
+                const isLeave = periodLeaves.some(l => String(l.original).trim() === volName);
+
+                if (!isLeave) {
+                    return `
+                        <div class="p-2 bg-white/90 border border-emerald-200/80 rounded-lg flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-800">${volName}</span>
+                            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">正常出勤</span>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="p-2 bg-white/90 border border-rose-200 rounded-lg flex justify-between items-center text-xs">
+                        <span class="line-through text-slate-400 font-medium">${volName}</span>
+                        <span class="text-[10px] font-bold bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded">請假</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `<div class="flex flex-col items-stretch space-y-1.5 pt-0.5">${volunteerCardsHtml}</div>`;
+        }
+
+        document.getElementById("leave-form").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById("submit-btn");
+            const statusEl = document.getElementById("form-status");
+            let payload = {
+                period: document.getElementById("leave-period").value,
+                original: document.getElementById("leave-original").value.trim()
+            };
+
+            if (currentMode === "multiple") {
+                const dateInputs = document.querySelectorAll(".leave-date-input");
+                const dates = Array.from(dateInputs).map(i => i.value).filter(v => v !== "");
+                if (dates.length === 0) {
+                    alert("請至少選擇一個請假日期！");
+                    return;
+                }
+                payload.dates = dates;
+            } else {
+                const startDate = document.getElementById("leave-start-date").value;
+                const endDate = document.getElementById("leave-end-date").value;
+                if (!startDate || !endDate) {
+                    alert("請完整選擇開始與結束日期！");
+                    return;
+                }
+                if (new Date(startDate) > new Date(endDate)) {
+                    alert("結束日期不能早於開始日期！");
+                    return;
+                }
+                payload.startDate = startDate;
+                payload.endDate = endDate;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>處理中...</span>`;
+            statusEl.className = "text-xs font-medium px-3 py-2 rounded-lg bg-slate-100 text-slate-600 border border-slate-200";
+            statusEl.textContent = `正在寫入請假紀錄至 Google 試算表...`;
+            statusEl.classList.remove("hidden");
+
+            try {
+                await fetch(CONFIG.API_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                statusEl.className = "text-xs font-medium px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200";
+                statusEl.textContent = "✅ 請假登記完成！系統將自動刷新頁面...";
+
+                document.getElementById("leave-original").value = "";
+
+                setTimeout(async () => {
+                    await renderSchedule();
+                    statusEl.classList.add("hidden");
+                }, 2500);
+
+            } catch (err) {
+                console.error("提交失敗:", err);
+                statusEl.className = "text-xs font-medium px-3 py-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200";
+                statusEl.textContent = "❌ 登記失敗，請檢查網路連線。";
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>送出請假登記</span>`;
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const today = new Date().toISOString().split('T')[0];
+            const firstDateInput = document.querySelector(".leave-date-input");
+            if (firstDateInput) firstDateInput.value = today;
+            
+            document.getElementById("leave-start-date").value = today;
+            document.getElementById("leave-end-date").value = today;
+            
+            renderSchedule();
+        });
+    </script>
+</body>
+</html>
